@@ -1,0 +1,9 @@
+{
+  "model_type": "tau/sled",
+  "underlying_config": "google/t5-v1_1-base",
+  "context_size": 256,
+  "window_fraction": 0.5,
+  "prepend_prefix": true,
+  "encode_prefix": true,
+  "sliding_method": "dynamic"
+}

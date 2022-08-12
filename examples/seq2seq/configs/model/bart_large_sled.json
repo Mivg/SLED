@@ -1,0 +1,7 @@
+{
+  "model_name_or_path": "tau/bart-large-sled",
+  "use_auth_token": false,
+  "pad_prefix": true,
+  "max_target_length": 1024,
+  "fp16": true
+}
