@@ -73,7 +73,7 @@ There are multiple model cards available on HuggingfaceHub including
 - [Bart-Base SLED](https://huggingface.co/tau/bart-base-sled) (model name `tau/bart-base-sled`)
 - [Bart-Large SLED](https://huggingface.co/tau/bart-large-sled) (model name `tau/bart-base-sled`)
 - [T5(v1.1)-base SLED](https://huggingface.co/tau/t5-v1_1-base-sled) (model name `tau/t5-v1_1-base-sled`)
-- [T5(v1.1)-large SLED](https://huggingface.co/tau/t5-v1_1-large-sled) (model name `tau/t5-v1_1-largeß-sled`)
+- [T5(v1.1)-large SLED](https://huggingface.co/tau/t5-v1_1-large-sled) (model name `tau/t5-v1_1-large-sled`)
 
 If you wish to use a custom model that is available as a model card (public or private) on the hub, or use 
 different parameters for SLED, you can create a json config file like the below, and change the underlying_config to your custom model card.

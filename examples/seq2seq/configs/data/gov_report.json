@@ -2,6 +2,7 @@
   "dataset_name": "tau/sled",
   "dataset_config_name": "gov_report",
   "max_source_length": 16384,
+  "generation_max_length": 1024,
   "max_prefix_length": 0,
   "num_train_epochs": 10,
   "metric_names": ["rouge"],
