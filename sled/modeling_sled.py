@@ -244,7 +244,8 @@ class SledPretrainedModel(PreTrainedModel, metaclass=abc.ABCMeta):
                 load_result = model.load_state_dict(state_dict, strict=False)
 
                 if len(load_result.missing_keys) != 0:
-                    if set(load_result.missing_keys) == set(model._keys_to_ignore_on_save):
+                    if model._keys_to_ignore_on_save is not None and \
+                            set(load_result.missing_keys) == set(model._keys_to_ignore_on_save):
                         underlying_model.tie_weights()
                     else:
                         logger.warn(

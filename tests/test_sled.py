@@ -217,7 +217,7 @@ class SLEDModelTest(unittest.TestCase):
 
         # now, save and reload
         cache_dir = os.environ.get('XDG_CACHE_HOME', '/tmp/cache')
-        out_dir = 'cache_dir/test_save_checkpoint'
+        out_dir = f'{cache_dir}/test_save_checkpoint'
         os.makedirs(out_dir, exist_ok=True)
         shutil.rmtree(out_dir)  # cleanup previous checkpoints
         # let's change the model a little before saving it to make sure it works correctly and doesn't load the c
