@@ -678,12 +678,18 @@ def main():
         # load last (and best) model, or the one specified if any
         logger.info("*** Loading model weights before the prediction ***")
         last_checkpoint = model_args.model_name_or_path if os.path.isdir(model_args.model_name_or_path) else _detect_last_checkpoint(training_args)
-        state_dict = torch.load(os.path.join(last_checkpoint, WEIGHTS_NAME), map_location="cpu")
-        # If the model is on the GPU, it still works!
-        trainer._load_state_dict_in_model(state_dict)
-        # release memory
-        del state_dict
-        logger.info("*** Done loading weights ***")
+        if os.path.isdir(last_checkpoint):
+            logger.info(f'Loading weights from {last_checkpoint} for the prediction')
+            state_dict = torch.load(os.path.join(last_checkpoint, WEIGHTS_NAME), map_location="cpu")
+            # If the model is on the GPU, it still works!
+            trainer._load_state_dict_in_model(state_dict)
+            # release memory
+            del state_dict
+            logger.info("*** Done loading weights ***")
+        elif training_args.do_train:
+            raise ValueError('Could not find a model to load for prediction')
+        else:
+            logger.info(f'Using {model_args.model_name_or_path} as the model for the prediction')
 
         predict_results = trainer.predict(predict_dataset, metric_key_prefix="predict")
         logger.info('Done predicting')
