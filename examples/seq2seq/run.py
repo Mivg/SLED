@@ -678,7 +678,7 @@ def main():
         # load last (and best) model, or the one specified if any
         logger.info("*** Loading model weights before the prediction ***")
         last_checkpoint = model_args.model_name_or_path if os.path.isdir(model_args.model_name_or_path) else _detect_last_checkpoint(training_args)
-        if os.path.isdir(last_checkpoint):
+        if last_checkpoint is not None and os.path.isdir(last_checkpoint):
             logger.info(f'Loading weights from {last_checkpoint} for the prediction')
             state_dict = torch.load(os.path.join(last_checkpoint, WEIGHTS_NAME), map_location="cpu")
             # If the model is on the GPU, it still works!
