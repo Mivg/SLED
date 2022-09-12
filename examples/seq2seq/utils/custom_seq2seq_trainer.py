@@ -71,6 +71,13 @@ class CustomTrainer(Seq2SeqTrainer):
             Tuple[Optional[float], Optional[torch.Tensor], Optional[torch.Tensor]]: A tuple with the loss, logits and
             labels (each being optional).
         """
+        if not ("labels" in inputs or 'decoder_input_ids' in inputs):
+            logger.warning('When computing loss, must give labels or decoder_input_ids. '
+                           'If you only perform prediction, you can safely ignore this message')
+            # This is an issue here because the input may be longer than the max-output length of the model,
+            # and if nothing was given it will shift the input and use it to compute loss (and later discard it).
+            # This may cause an indexing error when absolute embeddings are used (CUDA device side assert)
+            inputs['decoder_input_ids'] = inputs['input_ids'][:,:2].clone()  # dummy outputs
 
         if not self.args.predict_with_generate or prediction_loss_only:
             return super().prediction_step(

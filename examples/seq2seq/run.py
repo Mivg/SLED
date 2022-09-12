@@ -674,6 +674,7 @@ def main():
 
     if training_args.do_predict:
         logger.info("*** Predict ***")
+        trainer.args.predict_with_generate = True # during prediction, we don't have labels
 
         # load last (and best) model, or the one specified if any
         logger.info("*** Loading model weights before the prediction ***")
