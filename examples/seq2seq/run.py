@@ -302,7 +302,7 @@ class DataTrainingArguments:
     def __post_init__(self):
         if self.val_max_target_length is None:
             self.val_max_target_length = self.max_target_length
-        if self.pad_prefix and self.max_prefix_length > 0:
+        if self.pad_prefix and self.max_prefix_length == 0:
             raise ValueError('When padding prefix, you must set a max_prefix_length')
         assert self.max_prefix_length == 0 or self.max_prefix_length <= 0.5*self.max_source_length,\
             'If max_prefix_length is given, it must be much shorter than the total input'

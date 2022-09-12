@@ -8,6 +8,7 @@ from sled.tokenization_sled import SledTokenizer
 from sled.tokenization_sled_fast import SledTokenizerFast
 
 BART_BASE_SLED_URL = 'tau/bart-base-sled'
+BART_BASE_SLED_GOV_URL = 'tau/bart-base-sled-govreport'
 T5_BASE_SLED_URL = 'tau/t5-v1_1-base-sled'
 
 sys.path.insert(0, os.getcwd())
@@ -266,6 +267,24 @@ class SLEDModelTest(unittest.TestCase):
                                                             use_fast=True), T5TokenizerFast)
         self.assertIsInstance(AutoTokenizer.from_pretrained(another_config_path, use_auth_token=use_auth_token,
                                                             use_fast=True), T5TokenizerFast)
+
+    def test_load_finetuned_model(self):
+        bart_base_sled = AutoModel.from_pretrained(BART_BASE_SLED_URL)
+        bart_base_sled_gov = SledModel.from_pretrained(BART_BASE_SLED_GOV_URL)
+        # testing embeedings have changed
+        assert not torch.all(bart_base_sled.get_input_embeddings().weight ==
+                             bart_base_sled_gov.get_input_embeddings().weight).item()
+        # test decoder weights have changed
+        assert not torch.all(
+            bart_base_sled.state_dict()['_underlying_model.decoder.layers.0.encoder_attn.k_proj.weight'] ==
+            bart_base_sled_gov.state_dict()['_underlying_model.decoder.layers.0.encoder_attn.k_proj.weight']
+        ).item()
+        # test encoder weights have changed
+        assert not torch.all(
+            bart_base_sled.state_dict()['_underlying_model.encoder.layers.0.self_attn.k_proj.weight'] ==
+            bart_base_sled_gov.state_dict()['_underlying_model.encoder.layers.0.self_attn.k_proj.weight']
+        ).item()
+
 
     def test_sled_on_t5(self):
         self._run_sled_model_test_case(T5Model.from_pretrained("t5-small"), T5Tokenizer.from_pretrained("t5-small"),

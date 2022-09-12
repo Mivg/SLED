@@ -11,7 +11,8 @@ from torch import nn
 from transformers import PreTrainedModel, AutoModel, AutoModelForSeq2SeqLM, WEIGHTS_NAME
 from transformers.generation_utils import GenerationMixin
 from transformers.modeling_outputs import BaseModelOutput
-from transformers.utils import logging
+from transformers.utils import logging, hf_bucket_url, cached_path, EntryNotFoundError
+
 
 from .configuration_sled import SledConfig
 
@@ -230,6 +231,7 @@ class SledPretrainedModel(PreTrainedModel, metaclass=abc.ABCMeta):
         config = kwargs.pop('config', None) or \
                  cls.config_class.from_pretrained(pretrained_model_name_or_path,
                                                   use_auth_token=kwargs.get('use_auth_token', False))
+        state_dict = kwargs.pop('state_dict', None)
         if os.path.exists(pretrained_model_name_or_path):
             # if pretrained_model_name_or_path is a saved checkpoint
             if pretrained_model_name_or_path.endswith('json'):
@@ -237,29 +239,76 @@ class SledPretrainedModel(PreTrainedModel, metaclass=abc.ABCMeta):
             else:
                 # otherwise, it is a config json path + weights. Note LSED doesn't have any weights of its own,
                 # so the state dict is only for the underlying model
-                state_dict = torch.load(os.path.join(pretrained_model_name_or_path, WEIGHTS_NAME), map_location="cpu")
+                backbone_state_dict = torch.load(os.path.join(pretrained_model_name_or_path, WEIGHTS_NAME), map_location="cpu")
                 underlying_model = cls.auto_model_loader.from_pretrained(config.underlying_config, *model_args,
                                                                          **kwargs)
                 model = cls(underlying_model, config)
-                load_result = model.load_state_dict(state_dict, strict=False)
-
-                if len(load_result.missing_keys) != 0:
-                    if model._keys_to_ignore_on_save is not None and \
-                            set(load_result.missing_keys) == set(model._keys_to_ignore_on_save):
-                        underlying_model.tie_weights()
-                    else:
-                        logger.warn(
-                            f"There were missing keys in the checkpoint model loaded: {load_result.missing_keys}.")
-                if len(load_result.unexpected_keys) != 0:
-                    logger.warn(
-                        f"There were unexpected keys in the checkpoint model loaded: {load_result.unexpected_keys}.")
+                cls._load_state_dict(backbone_state_dict, model, underlying_model)
                 return model
 
         else:
             # assume it is a model card on the hub                                                         )
             underlying_model = cls.auto_model_loader.from_pretrained(config.underlying_config, *model_args, **kwargs)
 
-        return cls(underlying_model, config)
+            state_dict = cls._load_remote_state_dict(kwargs, pretrained_model_name_or_path, state_dict)
+
+        sled_model = cls(underlying_model, config)
+        if state_dict is not None:
+            logger.info('Updating SLED model weights from state dict')
+            cls._load_state_dict(state_dict, sled_model)
+        return sled_model
+
+    @classmethod
+    def _load_state_dict(cls, backbone_state_dict, model, underlying_model=None):
+        load_result = model.load_state_dict(backbone_state_dict, strict=False)
+        if len(load_result.missing_keys) != 0:
+            if underlying_model is not None and \
+                    model._keys_to_ignore_on_save is not None and \
+                    set(load_result.missing_keys) == set(model._keys_to_ignore_on_save):
+                underlying_model.tie_weights()
+            else:
+                logger.warn(
+                    f"There were missing keys in the checkpoint model loaded: {load_result.missing_keys}.")
+        if len(load_result.unexpected_keys) != 0:
+            logger.warn(
+                f"There were unexpected keys in the checkpoint model loaded: {load_result.unexpected_keys}.")
+
+    @classmethod
+    def _load_remote_state_dict(cls, kwargs, pretrained_model_name_or_path, state_dict):
+        if state_dict is None:
+            archive_file = hf_bucket_url(
+                pretrained_model_name_or_path,
+                filename=WEIGHTS_NAME,
+                revision=kwargs.pop("revision", None),
+                mirror=kwargs.pop("mirror", None),
+                subfolder=kwargs.pop("subfolder", None),
+            )
+            logger.info(f'Looking for pretrained weights on {archive_file}')
+
+            try:
+                # Load from URL or cache if already cached
+                user_agent = {"file_type": "model", "framework": "pytorch",
+                              "from_auto_class": kwargs.pop("_from_auto", False)}
+                from_pipeline = kwargs.pop("_from_pipeline", None)
+                if from_pipeline is not None:
+                    user_agent["using_pipeline"] = from_pipeline
+                resolved_archive_file = cached_path(
+                    archive_file,
+                    cache_dir=kwargs.pop("cache_dir", None),
+                    force_download=kwargs.pop("force_download", False),
+                    proxies=kwargs.pop("proxies", None),
+                    resume_download=kwargs.pop("resume_download", False),
+                    local_files_only=kwargs.pop("local_files_only", False),
+                    use_auth_token=kwargs.pop("use_auth_token", None),
+                    user_agent=user_agent,
+                )
+
+                state_dict = torch.load(resolved_archive_file, map_location="cpu")
+            except EntryNotFoundError:
+                logger.info('Did not find a SLED weights file to be loaded.'
+                            ' If this is not unexpected, please reach out. '
+                            'Note - loading sharded weight file is not currently supported')
+        return state_dict
 
     def _verify_config_consistency(self):
         if not self._verified_config_consistency:
@@ -663,7 +712,8 @@ class SledModel(SledPretrainedModel):
                 hasattr(self, 'prepare_decoder_input_ids_from_labels') :
             logger.warning('Passing a batch through the model without the decoder_input_ids is likely to cause issues. '
                            'If you encounter cuda errors, make sure you use the prepare_decoder_input_ids_from_labels '
-                           'function of the model correctly before passing the input')
+                           'function of the model correctly before passing the input. '
+                           'If you are only performing prediction without training, you can safely ignore this message')
         res = self._underlying_model.forward(
             *args, **_extract_keyword_args(forward_kwargs, self._forward_kwargs_names)
         )

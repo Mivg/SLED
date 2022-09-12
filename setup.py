@@ -20,7 +20,7 @@ extra_dev = [
 
 setup(
     name='py-sled',
-    version='0.1.3',
+    version='0.1.4',
 
     python_requires='>=3.7.0',
     install_requires=[
