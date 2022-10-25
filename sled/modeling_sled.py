@@ -7,11 +7,12 @@ from typing import Dict, Any, Optional
 import torch
 import torch.nn.functional as F
 from makefun import create_function
+from requests.exceptions import HTTPError
 from torch import nn
 from transformers import PreTrainedModel, AutoModel, AutoModelForSeq2SeqLM, WEIGHTS_NAME
 from transformers.generation_utils import GenerationMixin
 from transformers.modeling_outputs import BaseModelOutput
-from transformers.utils import logging, hf_bucket_url, cached_path, EntryNotFoundError
+from transformers.utils import logging
 
 
 from .configuration_sled import SledConfig
@@ -20,6 +21,89 @@ logger = logging.get_logger(__name__)
 
 
 PREFIX_KEY = 'prefix_length'
+
+def _legacy_download_weights(kwargs, pretrained_model_name_or_path):
+    # noinspection PyUnresolvedReferences
+    from transformers.utils import hf_bucket_url, cached_path, EntryNotFoundError
+    archive_file = hf_bucket_url(
+        pretrained_model_name_or_path,
+        filename=WEIGHTS_NAME,
+        revision=kwargs.pop("revision", None),
+        mirror=kwargs.pop("mirror", None),
+        subfolder=kwargs.pop("subfolder", None),
+    )
+    logger.info(f'Looking for pretrained weights on {archive_file}')
+
+    try:
+        # Load from URL or cache if already cached
+        user_agent = {"file_type": "model", "framework": "pytorch",
+                      "from_auto_class": kwargs.pop("_from_auto", False)}
+        from_pipeline = kwargs.pop("_from_pipeline", None)
+        if from_pipeline is not None:
+            user_agent["using_pipeline"] = from_pipeline
+        resolved_archive_file = cached_path(
+            archive_file,
+            cache_dir=kwargs.pop("cache_dir", None),
+            force_download=kwargs.pop("force_download", False),
+            proxies=kwargs.pop("proxies", None),
+            resume_download=kwargs.pop("resume_download", False),
+            local_files_only=kwargs.pop("local_files_only", False),
+            use_auth_token=kwargs.pop("use_auth_token", None),
+            user_agent=user_agent,
+        )
+
+        logger.info(f'Successfully downloaded the weights to {resolved_archive_file}')
+        return torch.load(resolved_archive_file, map_location="cpu")
+    except EntryNotFoundError:
+        logger.info('Did not find a SLED weights file to be loaded.'
+                    ' If this is not unexpected, please reach out. '
+                    'Note - loading sharded weight file is not currently supported')
+    return None
+
+def _download_weights(kwargs, pretrained_model_name_or_path):
+    try:
+        from transformers.utils import cached_file, EntryNotFoundError, HUGGINGFACE_CO_RESOLVE_ENDPOINT
+        # Load from URL
+        user_agent = {"file_type": "model", "framework": "pytorch",
+                      "from_auto_class": kwargs.pop("_from_auto", False)}
+        cached_filename = cached_file(
+            pretrained_model_name_or_path,
+            WEIGHTS_NAME,  # shard_filename,
+            cache_dir=kwargs.pop("cache_dir", None),
+            force_download=kwargs.pop("force_download", False),
+            proxies=kwargs.pop("proxies", None),
+            resume_download=kwargs.pop("resume_download", False),
+            local_files_only=kwargs.pop("local_files_only", False),
+            use_auth_token=kwargs.pop("use_auth_token", None),
+            user_agent=user_agent,
+            revision=kwargs.pop("revision", None),
+            subfolder=kwargs.pop("subfolder", None),
+            _commit_hash=kwargs.pop("_commit_hash", None),
+        )
+        logger.info(f'Successfully downloaded the weights to {cached_filename}')
+        return torch.load(cached_filename, map_location="cpu")
+        # We have already dealt with RepositoryNotFoundError and RevisionNotFoundError when getting the index, so
+        # we don't have to catch them here.
+    except ImportError:
+        # probably an older version of transformers. try to fallback on legacy load
+        logger.info('Could not find a weights file with the new huggingface api hub. Attempting fallback to the old api')
+    except (OSError, EntryNotFoundError) as e:
+        logger.info('Did not find a SLED weights file to be loaded.'
+                    ' If this is not unexpected, please reach out. '
+                    f'Note - loading sharded weight file is not currently supported ({e})')
+        return None
+    except HTTPError:
+        raise EnvironmentError(
+            f"We couldn't connect to '{HUGGINGFACE_CO_RESOLVE_ENDPOINT}' to load {WEIGHTS_NAME}. You should try"
+            " again after checking your internet connection."
+        )
+
+    try:
+        return _legacy_download_weights(kwargs, pretrained_model_name_or_path)  # attempt fallback
+    except ImportError:
+        logger.error('Could not find a SLED weights file to be loaded due to unmatching transformers version. '
+                     'Please open as issue on https://github.com/Mivg/SLED/issues')
+        raise
 
 
 def _find_tensor_inds_and_size(*args, **kwargs):
@@ -31,8 +115,8 @@ def _find_tensor_inds_and_size(*args, **kwargs):
     size = args[args_tensor_inds[0]].size() if len(args_tensor_inds) > 0 else kwargs[kwargs_tensor_keys[0]].size()
     assert len(size) == 2, f"expected 2-d tensors but got tensors of shape: {size}"
     _, s = size
-    # can also assert that all tensors here share the same size but we will skip this for efficiency
-    # sake and make this assumption
+    # can also assert that all tensors here share the same size, but we will skip this for efficiency’s sake and make
+    # this assumption
 
     return args_tensor_inds, kwargs_tensor_keys, s
 
@@ -261,6 +345,8 @@ class SledPretrainedModel(PreTrainedModel, metaclass=abc.ABCMeta):
     @classmethod
     def _load_state_dict(cls, backbone_state_dict, model, underlying_model=None):
         load_result = model.load_state_dict(backbone_state_dict, strict=False)
+        # Known issue - when loading a model checkpoint of type AutoModelForSeq2SeqLM with AutoModel,
+        # the state dict will not be loaded correctly. Documented [here](https://github.com/Mivg/SLED/issues/4)
         if len(load_result.missing_keys) != 0:
             if underlying_model is not None and \
                     model._keys_to_ignore_on_save is not None and \
@@ -276,38 +362,7 @@ class SledPretrainedModel(PreTrainedModel, metaclass=abc.ABCMeta):
     @classmethod
     def _load_remote_state_dict(cls, kwargs, pretrained_model_name_or_path, state_dict):
         if state_dict is None:
-            archive_file = hf_bucket_url(
-                pretrained_model_name_or_path,
-                filename=WEIGHTS_NAME,
-                revision=kwargs.pop("revision", None),
-                mirror=kwargs.pop("mirror", None),
-                subfolder=kwargs.pop("subfolder", None),
-            )
-            logger.info(f'Looking for pretrained weights on {archive_file}')
-
-            try:
-                # Load from URL or cache if already cached
-                user_agent = {"file_type": "model", "framework": "pytorch",
-                              "from_auto_class": kwargs.pop("_from_auto", False)}
-                from_pipeline = kwargs.pop("_from_pipeline", None)
-                if from_pipeline is not None:
-                    user_agent["using_pipeline"] = from_pipeline
-                resolved_archive_file = cached_path(
-                    archive_file,
-                    cache_dir=kwargs.pop("cache_dir", None),
-                    force_download=kwargs.pop("force_download", False),
-                    proxies=kwargs.pop("proxies", None),
-                    resume_download=kwargs.pop("resume_download", False),
-                    local_files_only=kwargs.pop("local_files_only", False),
-                    use_auth_token=kwargs.pop("use_auth_token", None),
-                    user_agent=user_agent,
-                )
-
-                state_dict = torch.load(resolved_archive_file, map_location="cpu")
-            except EntryNotFoundError:
-                logger.info('Did not find a SLED weights file to be loaded.'
-                            ' If this is not unexpected, please reach out. '
-                            'Note - loading sharded weight file is not currently supported')
+            state_dict = _download_weights(kwargs, pretrained_model_name_or_path)
         return state_dict
 
     def _verify_config_consistency(self):
