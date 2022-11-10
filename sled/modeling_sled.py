@@ -891,6 +891,7 @@ class SledForConditionalGeneration(SledModel):
         # directly may not work anymore
         self._underlying_model._prepare_encoder_decoder_kwargs_for_generation = \
             self._get__prepare_encoder_decoder_kwargs_for_generation_func_override()
+        self._underlying_model._validate_model_kwargs = _validate_model_kwargs  # see hack details below
 
     def _get__prepare_encoder_decoder_kwargs_for_generation_func_override(self):
         # _prepare_encoder_decoder_kwargs_for_generation(
@@ -927,3 +928,10 @@ class SledForConditionalGeneration(SledModel):
         finally:
             self._set_underlying_model_attr(self._encoder_attr_name, self._base_encoder)
         return res
+
+def _validate_model_kwargs(self, *args, **kwargs):
+    # Newer versions of HF perform a check on the input args for generate and raise an exception when passing
+    # prefix_length for example to this model because it doesn't list it explicitly.
+    # This is a hack to support newer HF models until the generate() signature will be created dynamically to
+    # include all the keyword args including prefix_length
+    pass
