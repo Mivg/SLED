@@ -289,8 +289,9 @@ class SledPretrainedModel(PreTrainedModel, metaclass=abc.ABCMeta):
         #     if method_name not in {"_replicate_for_data_parallel", 'modules'}:
         #         setattr(self, method_name, getattr(underlying_model, method_name))
         # However, the above is too broad and dangerous, so we will do it directly
-        for method_name in {"_init_weights"}:
-            setattr(self, method_name, getattr(underlying_model, method_name))
+        for method_name in {"_init_weights", "prepare_inputs_for_generation"}:
+            if hasattr(underlying_model, method_name):
+                setattr(self, method_name, getattr(underlying_model, method_name))
 
         # set the resize_token_embeddings
         vocab_size = underlying_model.get_input_embeddings().weight.size(0)
