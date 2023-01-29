@@ -24,4 +24,4 @@ configs/training/base_training_args.json \
 --learning_rate 2e-5
 ```
 
-Examples jsons files are [here](https://github.com/Mivg/SLED/tree/main/examples/seq2seq/configs).
+Example jsons files are [here](https://github.com/Mivg/SLED/tree/main/examples/seq2seq/configs).

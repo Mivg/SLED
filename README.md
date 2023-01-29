@@ -1,5 +1,5 @@
 # SLED
-The official repository for Efficient Long-Text Understanding Using Short-Text Models [(Ivgi et al., 2022)](https://arxiv.org/abs/2208.00748.pdf).
+The official repository for <i>Efficient Long-Text Understanding Using Short-Text Models</i> [(Ivgi et al., 2022)](https://arxiv.org/abs/2208.00748.pdf), to appear in <b>Transactions of the Association for Computational Linguistics (TACL) 2023 </b>.
 
 SLED models use pretrained, short-range encoder-decoder models, and apply them over. 
 long-text inputs by splitting the input into multiple overlapping chunks, encoding each independently and perform fusion-in-decoder.
