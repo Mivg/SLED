@@ -24,7 +24,7 @@ setup(
 
     python_requires='>=3.7.0',
     install_requires=[
-        'transformers>=4.21.0',
+        'transformers==4.21.0',
         'makefun>=1.14.0',
     ],
     extras_require={

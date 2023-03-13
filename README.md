@@ -110,3 +110,6 @@ If you use this repository, please cite as below:
 ## Disclaimer
 This repository is still under active development, and may contain some unintended behavior. 
 Please open an issue if any unexpected behaviour occurs, and we will promptly try to fix it.
+
+The code was developed and tested with transformers version 4.21.0. Newer version may break backward 
+compatibility and cause unexpected behaviour.
