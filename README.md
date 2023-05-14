@@ -1,16 +1,15 @@
 # SLED
 The official repository for <i>Efficient Long-Text Understanding Using Short-Text Models</i> [(Ivgi et al., 2022)](https://arxiv.org/abs/2208.00748.pdf), to appear in <b>Transactions of the Association for Computational Linguistics (TACL) 2023 </b>.
 
-SLED models use pretrained, short-range encoder-decoder models, and apply them over. 
-long-text inputs by splitting the input into multiple overlapping chunks, encoding each independently and perform fusion-in-decoder.
+SLED models use pretrained, short-range encoder-decoder models, and apply them over long-text inputs by splitting the input into multiple overlapping chunks, encoding each independently, and performing fusion-in-decoder.
 
 
 ## Data
-The data for this paper is hosted on the dataset hub [here](https://huggingface.co/datasets/tau/sled). 
-It is based on the [SCROLLS dataset](https://huggingface.co/datasets/tau/scrolls) ([paper](https://arxiv.org/pdf/2201.03533.pdf)), the [SQuAD 1.1 dataset](https://huggingface.co/datasets/squad) ([paper](https://arxiv.org/pdf/1606.05250.pdf)) and the [HotpotQA dataset](https://huggingface.co/datasets/hotpot_qa) ([paper](https://arxiv.org/pdf/1809.09600.pdf)).
-It doesn't contain any unpublished data, but includes the configuration needed for the paper.
+The data for this paper are hosted on the HuggingFace Hub [here](https://huggingface.co/datasets/tau/sled). 
+The dataset is based on the [SCROLLS dataset](https://huggingface.co/datasets/tau/scrolls) ([paper](https://arxiv.org/pdf/2201.03533.pdf)), the [SQuAD 1.1 dataset](https://huggingface.co/datasets/squad) ([paper](https://arxiv.org/pdf/1606.05250.pdf)), and the [HotpotQA dataset](https://huggingface.co/datasets/hotpot_qa) ([paper](https://arxiv.org/pdf/1809.09600.pdf)).
+It doesn't contain any unpublished data. It includes the configuration needed for the paper.
 
-Usage example :
+Usage example:
 ```python
 from datasets import load_dataset
 qasper = load_dataset("tau/sled","qasper")
@@ -20,28 +19,28 @@ qasper = load_dataset("tau/sled","qasper")
 
 Make sure to install pytorch according to your machine spec. See installation options [here](https://pytorch.org/get-started/locally/).
 
-Installing SLED is easy with pip.
+Installing SLED is easy with pip:
 ```
 pip install py-sled
 ```
 
-Some backbone models require additional dependencies. If you wish to work with T5 for example, you can install using.
+Some backbone models require additional dependencies. If you wish to work with T5 for example, you can install using:
 ```
 pip install py-sled[t5]
 ```
 
-If you wish to run the examples, install the required dependencies with
+If you wish to run the examples, install the required dependencies with:
 ```
 pip install py-sled[examples]
 ```
 
-If you wish to continue developing this repository, install the full development requirments with
+If you wish to continue developing this repository, install the full development requirments with:
 ```
 pip install py-sled[dev]
 ```
 
 ## Usage
-Working with SLED is seamless when working with HuggingFace's Transformers AutoClasses.
+Working with SLED is seamless when using HuggingFace's Transformers AutoClasses.
 
 A minimal usage example:
 ```python
@@ -56,27 +55,25 @@ last_hidden_states = outputs.last_hidden_state
 
 _Important_: You need to `import sled` before using the AutoClass (e.g. `AutoModel.from_pretrained('tau/bart-base-sled)`) for it to work.
 
-Minimal working example can be found [here](examples/usage_example.py).
+A minimal working example can be found [here](examples/usage_example.py).
 
-To work with SCROLLS like data that was used for the paper, see [here](examples/seq2seq).
+To work with SCROLLS-like data that was used for the paper, see [here](examples/seq2seq).
 
-### Custom datasets
+### Custom Datasets
 For SLED to be able to prepend the prefix input to every chunk, it requires the input tensor `prefix_length`. 
-If using a custom dataset, you can refer to [run.py](examples/seq2seq/run.py) for the correct way to preprocess the data.
+If using a custom dataset, refer to [run.py](examples/seq2seq/run.py) for the correct way to preprocess the data.
 
-_Note_: Currently, HF's Seq2SeqTrainer doesn't pass the `prefix_length` tensor in the prediction loop, so you 
- should use the [CustomSeq2SeqTrainer](examples/seq2seq/utils/custom_seq2seq_trainer.py) or something similar until it is 
-fixed.
+_Note_: Currently, HF's Seq2SeqTrainer doesn't pass the `prefix_length` tensor in the prediction loop, so you should use the [CustomSeq2SeqTrainer](examples/seq2seq/utils/custom_seq2seq_trainer.py) or something similar until this is fixed.
 
-### Backbone models
-There are multiple model cards available on HuggingfaceHub including
+### Backbone Models
+There are multiple model cards available on HuggingFace Hub, including:
 - [Bart-Base SLED](https://huggingface.co/tau/bart-base-sled) (model name `tau/bart-base-sled`)
 - [Bart-Large SLED](https://huggingface.co/tau/bart-large-sled) (model name `tau/bart-base-sled`)
 - [T5(v1.1)-base SLED](https://huggingface.co/tau/t5-v1_1-base-sled) (model name `tau/t5-v1_1-base-sled`)
 - [T5(v1.1)-large SLED](https://huggingface.co/tau/t5-v1_1-large-sled) (model name `tau/t5-v1_1-large-sled`)
 
-If you wish to use a custom model that is available as a model card (public or private) on the hub, or use 
-different parameters for SLED, you can create a json config file like the below, and change the underlying_config to your custom model card.
+If you wish to use a custom HuggingFace Hub model that is available as a model card (public or private), or use 
+different parameters for SLED, you can create a json config file like the below.  You will need to change the `underlying_config` attribute to match your custom model card.
 ```json
 {
   "model_type": "tau/sled",
@@ -88,7 +85,7 @@ different parameters for SLED, you can create a json config file like the below,
   "sliding_method": "dynamic"
 }
 ```
-You can then load it like below
+You can then load the custom model with:
 ```python
 import sled
 from transformers import AutoModelForSeq2SeqLM
@@ -108,8 +105,6 @@ If you use this repository, please cite as below:
 
 
 ## Disclaimer
-This repository is still under active development, and may contain some unintended behavior. 
-Please open an issue if any unexpected behaviour occurs, and we will promptly try to fix it.
+This repository is still under active development, and may contain some unintended behavior. Please open an issue if any unexpected behaviour occurs, and we will promptly try to fix it.
 
-The code was developed and tested with transformers version 4.21.0. Newer version may break backward 
-compatibility and cause unexpected behaviour.
+The code was developed and tested with transformers version 4.21.0. Newer version may break backward compatibility and cause unexpected behaviour.
